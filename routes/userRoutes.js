@@ -26,52 +26,58 @@ router.post("/signup-owner", authMiddleWare, async (req, res) => {
     const {
       name,
       email,
-      password,
+      phone,
       restaurantName,
       restaurantAddress,
       restaurantPhone,
+      monthlyCharge,
     } = req.body;
 
 
     if (
       !name ||
-      !email ||
-      !password
-      || !restaurantName ||
+     !restaurantName ||
       !restaurantAddress ||
+      !monthlyCharge ||
+      !phone ||
+
       !restaurantPhone
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "name, email, password, restaurantName, restaurantAddress, and restaurantPhone are required",
+          "name, email, password, restaurantName, restaurantAddress, monthlyCharge, phone, and restaurantPhone are required",
       });
     }
 
     const existingUser = await User.findOne({
-      $or: [{ email }, { name }],
+      $or: [{ phone }],
     });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User with this email or name already exists",
+        message: "User with this phone already exists",
       });
     }
 
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+
+
+    const hashedPassword = await bcrypt.hash(phone, 10);
 
     const newUser = await User.create({
-      username,
+      name,
       email,
+      phone,
       password: hashedPassword,
       role: "user",
     });
     const newRestaurant = await Restaurant.create({
-      name: `${name}'s Restaurant`,
+      name: restaurantName || `${name}'s Restaurant`,
       address: restaurantAddress,
       phone: restaurantPhone ,
         owner: newUser._id,
+        monthlyCharge: monthlyCharge,
     });
 
     await newRestaurant.save();
@@ -165,26 +171,26 @@ router.post("/signup", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const {password , phone} = req.body;
 
     // Validation
-    if (!email || !password) {
+    if ( !phone || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message: "Phone and password are required",
       });
     }
-    const isAdminLogin = await User.findOne({ email, role: "admin" });
+    const isAdminLogin = await User.findOne({ phone, role: "admin" });
     if (isAdminLogin) {
       const isPasswordValid = await bcrypt.compare(password, isAdminLogin.password);
       if (!isPasswordValid) {
         return res.status(401).json({ 
           success: false,
-          message: "Invalid email or password",
+          message: "Invalid password",
         });
       }
       const token = jwt.sign(
-        { userId: isAdminLogin._id, email: isAdminLogin.email, role: isAdminLogin.role },
+        { userId: isAdminLogin._id, phone: isAdminLogin.phone, role: isAdminLogin.role },
         process.env.JWT_SECRET,
         { expiresIn: "7d" },
       );
@@ -195,18 +201,18 @@ router.post("/login", async (req, res) => {
         user: {
           id: isAdminLogin._id,
           name: isAdminLogin.name,
-          email: isAdminLogin.email,
+          phone: isAdminLogin.phone,
           role: isAdminLogin.role,
         },
       });
     }
 
-    // Find user by email
-    const user = await User.findOne({ email , role: "user" });
+    // Find user by phone
+    const user = await User.findOne({ phone , role: "user" });
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid phone or no owner account found with this phone",
       });
     }
 
@@ -215,13 +221,13 @@ router.post("/login", async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid  password",
       });
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      { userId: user._id, phone: user.phone, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" },
     );
@@ -233,7 +239,7 @@ router.post("/login", async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email,
+        phone: user.phone,
         role: user.role,
       },
     });
