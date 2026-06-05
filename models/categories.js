@@ -8,6 +8,11 @@ const categorySchema = new mongoose.Schema({
   description: {
     type: String,
   },
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Restaurant",
+    required: true,
+  },
   timestamp: {
     type: Date,
     default: Date.now,

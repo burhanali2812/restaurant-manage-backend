@@ -8,6 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 const userRoutes = require("./routes/userRoutes");
+const productRoutes = require("./routes/productRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const waiterRoutes = require("./routes/waiterRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 
 
@@ -16,6 +20,10 @@ app.get("/", (req, res) => {
   res.send("Restaurant-Management Backend is Live!");
 });
 app.use("/api/users", userRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/category", categoryRoutes);
+app.use("/api/waiters", waiterRoutes);
+app.use("/api/orders", orderRoutes);
 
 
 

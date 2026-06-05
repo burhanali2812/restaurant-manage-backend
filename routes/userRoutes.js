@@ -203,6 +203,7 @@ router.post("/login", async (req, res) => {
           name: isAdminLogin.name,
           phone: isAdminLogin.phone,
           role: isAdminLogin.role,
+          test: "This is admin login",
         },
       });
     }
@@ -231,6 +232,7 @@ router.post("/login", async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "7d" },
     );
+    const restInfo = await Restaurant.findOne({ owner: user._id });
 
     res.status(200).json({
       success: true,
@@ -241,6 +243,10 @@ router.post("/login", async (req, res) => {
         name: user.name,
         phone: user.phone,
         role: user.role,
+          restid: restInfo?._id || null,
+    restname: restInfo?.name || null,
+    restaddress: restInfo?.address || null,
+    restphone: restInfo?.phone || null,
       },
     });
   } catch (error) {
