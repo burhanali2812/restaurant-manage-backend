@@ -36,6 +36,20 @@ router.get("/getWaiters/:restaurantId", async (req, res) => {
     res.status(500).json({ message: error.message || "Internal server error" });
   }
 });
+router.get("/getWaiter/:id", async (req, res) => {
+  try {
+    const waiter = await Waiter.findById(req.params.id);
+    if (!waiter) {
+      return res.status(404).json({ message: "Waiter not found" });
+    }
+    res.json(waiter);
+  }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message || "Internal server error" });
+
+    }
+  });
 
 router.delete("/deleteWaiter/:id", async (req, res) => {
   try {
@@ -69,6 +83,83 @@ router.put("/updateWaiter/:id", async (req, res) => {
         console.error(error);
         res.status(500).json({ message: error.message || "Internal server error" });
     }
+});
+
+router.get("/waiters-stats", async (req, res) => {
+  try {
+    const waiters = await Waiter.aggregate([
+      {
+        $lookup: {
+          from: "orders",
+          localField: "_id",
+          foreignField: "waiterId",
+          as: "orders",
+        },
+      },
+      {
+        $project: {
+          id: "$_id",
+          name: 1,
+
+          activeOrders: {
+            $size: {
+              $filter: {
+                input: "$orders",
+                as: "order",
+                cond: {
+                  $in: [
+                    "$$order.status",
+                    ["pending", "in-progress", "ready"],
+                  ],
+                },
+              },
+            },
+          },
+
+          completedOrders: {
+            $size: {
+              $filter: {
+                input: "$orders",
+                as: "order",
+                cond: {
+                  $eq: ["$$order.status", "paid"],
+                },
+              },
+            },
+          },
+
+          totalAmount: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$orders",
+                    as: "order",
+                    cond: {
+                      $eq: ["$$order.status", "paid"],
+                    },
+                  },
+                },
+                as: "paidOrder",
+                in: "$$paidOrder.total",
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: waiters,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch waiter statistics",
+    });
+  }
 });
 
 module.exports = router;

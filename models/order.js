@@ -1,14 +1,23 @@
 const mongoose = require("mongoose");
 
+// ========================
+// ORDER ITEM SCHEMA
+// ========================
 const orderItemSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
-   ref: "Product",
+    ref: "Product",
     required: true,
   },
   name: {
     type: String,
     required: true,
+  },
+  // Store the chosen variant name at time of order (e.g. "Half", "Full", "Large")
+  // This way the receipt always shows the correct variant even if the product changes later.
+  variantName: {
+    type: String,
+    default: null,
   },
   price: {
     type: Number,
@@ -24,6 +33,9 @@ const orderItemSchema = new mongoose.Schema({
   },
 });
 
+// ========================
+// ORDER SCHEMA
+// ========================
 const orderSchema = new mongoose.Schema(
   {
     restaurantId: {
@@ -35,11 +47,13 @@ const orderSchema = new mongoose.Schema(
     tableNo: {
       type: String,
     },
+
     orderType: {
       type: String,
       enum: ["dine-in", "takeaway", "delivery"],
       default: "dine-in",
     },
+
     OrderNo: {
       type: String,
       required: true,
@@ -69,9 +83,30 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Store how much cash the customer handed over (for change calculation on receipt)
+    amountPaid: {
+      type: Number,
+      default: null,
+    },
+
+    // e.g. "cash", "card", "online"
+    paymentMethod: {
+      type: String,
+      default: null,
+    },
+
     status: {
       type: String,
-      enum: ["pending", "served", "paid", "cancelled", "in-progress", "ready", "out-for-delivery", "delivered"],
+      enum: [
+        "pending",
+        "in-progress",
+        "ready",
+        "served",
+        "paid",
+        "cancelled",
+        "out-for-delivery",
+        "delivered",
+      ],
       default: "pending",
     },
   },

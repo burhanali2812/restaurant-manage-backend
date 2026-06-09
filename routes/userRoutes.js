@@ -437,4 +437,27 @@ router.get("/all", authMiddleWare, async (req, res) => {
   }
 });
 
+router.get("/getRestaurant/:id", authMiddleWare, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const restaurant = await Restaurant.findById(id);
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data : restaurant,
+    });
+  } catch (error) {
+    console.error("Get Restaurant Info Error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
 module.exports = router;
