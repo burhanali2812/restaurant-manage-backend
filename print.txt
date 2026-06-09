@@ -1,19 +1,7 @@
-Des Perdes
-Quaid-e-Azam Chowck Ghouri Town Phase 7
-03185259892
-
-Order: ORD-1023
-Table: -
-Date: 6/9/2026, 8:48:11 PM
-
-ITEM            QTY     PRICE     TOTAL
-----------------------------------------
-Special Haleem /  2     220      440
-Matar Qeema       1     300      300
-Sabzi             2     160      320
-
-Subtotal: Rs.1060
-Discount: Rs.0
-GRAND TOTAL: Rs.1060
-
-STATUS: UNPAID
+WAITER
+------------------------------------------------
+Order #: ORD-1056
+Waiter : Amjad
+Table  : 4
+Items  : 6
+Time   : 3:15:27 AM
