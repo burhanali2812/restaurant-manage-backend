@@ -161,5 +161,6 @@ router.get("/waiters-stats", async (req, res) => {
     });
   }
 });
+//set all
 
 module.exports = router;
