@@ -17,7 +17,7 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
       restaurantId,
       tableNo,
       orderType,
-   
+  
       waiterId,
       items,
       discount = 0,
@@ -63,6 +63,8 @@ const OrderCount = counter.value;
 const cleanedWaiterId =
   waiterId && waiterId.trim() !== "" ? waiterId : null;
 
+  const finalStatus = orderType === "dine-in" ? "pending" : "paid";
+
     const order = await Order.create({
       restaurantId,
       tableNo,
@@ -71,6 +73,7 @@ const cleanedWaiterId =
       waiterId : cleanedWaiterId,
       items: formattedItems,
       subtotal,
+      status: finalStatus,
       discount,
       total,
     });
