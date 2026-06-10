@@ -460,4 +460,33 @@ router.get("/getRestaurant/:id", authMiddleWare, async (req, res) => {
   }
 });
 
+// router.put("/editPassword",async (req, res) => {
+//   try {
+
+//     const {id, newPassword} = req.body;
+//     if(!id || !newPassword){
+//       return res.status(400).json({
+//         success: false,
+//         message: "User ID and new password are required",
+//       });
+//     }
+//     const user = await User.findById(id);
+//     if(!user){
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found",
+//       });
+//     }
+//     user.password = await bcrypt.hash(newPassword, 10);
+//     await user.save();
+//     res.status(200).json({
+//       success: true,
+//       message: "Password updated successfully",
+//     });
+//   } catch (error) {
+//     console.error("Edit Password Error:", error);
+//     res.status(500).json({ success: false, message: "Internal server error" });
+//   }
+// });
+
 module.exports = router;

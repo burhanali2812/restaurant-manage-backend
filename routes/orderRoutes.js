@@ -151,6 +151,7 @@ router.get("/getOrder/:id", authMiddleWare, async (req, res) => {
 router.put("/updateOrder/:id", authMiddleWare, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
+    const { status, amount } = req.body;
 
     if (!order) {
       return res.status(404).json({
@@ -161,7 +162,7 @@ router.put("/updateOrder/:id", authMiddleWare, async (req, res) => {
 
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { status, amountPaid: amount },
       { new: true, runValidators: true }
     );
     const restaurant = await Restaurant.findById(updatedOrder.restaurantId);
@@ -260,6 +261,22 @@ router.get("/metrics", async (req, res) => {
         $lte: new Date(`${endDate}T23:59:59.999Z`),
       };
     }
+    if(startDate > endDate){
+      return res.status(400).json({
+        success: false,
+        message: "Start date cannot be greater than end date",
+      });
+    }
+    if (!startDate || !endDate) {
+      const today = new Date();
+  filter.createdAt = {
+        $gte: new Date(today.setHours(0, 0, 0, 0)),
+        $lte: new Date(today.setHours(23, 59, 59, 999)),
+        };
+      }
+
+        
+
 
     const [
       totalOrders,
