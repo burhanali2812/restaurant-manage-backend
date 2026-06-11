@@ -333,6 +333,54 @@ router.get("/metrics", async (req, res) => {
     ]);
 
     const totalSales = salesResult[0]?.totalSales || 0;
+    //just get the orders unique products names , total quantity and total amount for the day
+    const productSummary = await Order.aggregate([
+      {
+        $match: {
+          ...filter,
+          status: {
+            $in: ["paid", "delivered"],
+          },
+        },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $group: {
+          _id: "$items.name",
+          totalQuantity: {
+            $sum: "$items.quantity",
+          },
+          totalAmount: {
+            $sum: "$items.total",
+          },  
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          productName: "$_id",
+          totalQuantity: 1,
+          totalAmount: 1,
+        },
+      },
+    ]);
+    // sample output of productSummary
+    // [
+    //   {
+    //     "productName": "Coke",
+    //     "totalQuantity": 10,
+    //     "totalAmount": 500
+    //   },
+    //   {
+    //     "productName": "Pepsi",
+    //     "totalQuantity": 5,
+    //     "totalAmount": 250
+    //   }
+    // ]
+
+    
 
     res.status(200).json({
       totalSales,
@@ -341,6 +389,7 @@ router.get("/metrics", async (req, res) => {
       activeOrders,
       inProgressOrders,
       completedOrders,
+      productSummary,
     });
   } catch (error) {
     console.error("Metrics Error:", error);
