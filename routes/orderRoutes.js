@@ -23,17 +23,50 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
       discount = 0,
     } = req.body;
 
-    if (!restaurantId || !items || items.length === 0) {
+    // -----------------------------
+    // 1. Basic validation
+    // -----------------------------
+    if (!restaurantId) {
       return res.status(400).json({
         success: false,
-        message: "restaurantId and items are required",
+        message: "restaurantId is required",
+      });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items are required",
       });
     }
 
     let subtotal = 0;
     const formattedItems = [];
 
+
     for (const item of items) {
+      const qty = Number(item.quantity);
+
+      // validate productId
+      if (
+        !item.productId ||
+        !mongoose.Types.ObjectId.isValid(item.productId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid productId in cart",
+        });
+      }
+
+      // validate quantity
+      if (!qty || isNaN(qty) || qty <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid quantity in cart",
+        });
+      }
+
+      // fetch product
       const product = await Product.findById(item.productId);
 
       if (!product) {
@@ -43,9 +76,16 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
         });
       }
 
-      const price = product.price; 
-      const total = price * item.quantity;
+      const price = Number(product.price);
 
+      if (isNaN(price)) {
+        return res.status(500).json({
+          success: false,
+          message: "Invalid product price in database",
+        });
+      }
+
+      const total = price * qty;
       subtotal += total;
 
       formattedItems.push({
@@ -53,14 +93,16 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
         name: item.name || product.name,
         variantName: item.variantName || null,
         price,
-        quantity: item.quantity,
+        quantity: qty,
         total,
       });
     }
 
+
     const safeDiscount = Math.max(0, Number(discount) || 0);
     const total = Math.max(0, subtotal - safeDiscount);
 
+    
     let counter = await OrderCounter.findOne({ key: "order" });
 
     if (!counter) {
@@ -73,11 +115,13 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
     counter.value += 1;
     await counter.save();
 
+   
     const cleanedWaiterId =
       waiterId && waiterId.trim() !== "" ? waiterId : null;
 
     const finalStatus = orderType === "dine-in" ? "pending" : "paid";
 
+    
     const order = await Order.create({
       restaurantId,
       tableNo,
@@ -96,15 +140,16 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
       ? await Waiter.findById(cleanedWaiterId)
       : null;
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Order created successfully",
       data: order,
       restaurant,
       waiter,
     });
+
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
