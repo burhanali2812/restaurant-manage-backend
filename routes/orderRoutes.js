@@ -45,59 +45,66 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
     const formattedItems = [];
 
 
-    for (const item of items) {
-      const qty = Number(item.quantity);
+   for (const item of items) {
+  const qty = Number(item.quantity);
 
-      // validate productId
-      if (
-        !item.productId ||
-        !mongoose.Types.ObjectId.isValid(item.productId)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid productId in cart",
-        });
-      }
+  if (!item.productId || !mongoose.Types.ObjectId.isValid(item.productId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid productId in cart",
+    });
+  }
 
-      // validate quantity
-      if (!qty || isNaN(qty) || qty <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid quantity in cart",
-        });
-      }
+  if (!qty || isNaN(qty) || qty <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid quantity in cart",
+    });
+  }
 
-      // fetch product
-      const product = await Product.findById(item.productId);
+  const product = await Product.findById(item.productId);
 
-      if (!product) {
-        return res.status(400).json({
-          success: false,
-          message: `Product not found: ${item.productId}`,
-        });
-      }
+  if (!product) {
+    return res.status(400).json({
+      success: false,
+      message: `Product not found: ${item.productId}`,
+    });
+  }
 
-      const price = Number(product.price);
+  // -------------------------
+  // FIX: variant pricing
+  // -------------------------
+  let price = Number(product.price);
 
-      if (isNaN(price)) {
-        return res.status(500).json({
-          success: false,
-          message: "Invalid product price in database",
-        });
-      }
+  if (item.variantName && product.variants?.length) {
+    const variant = product.variants.find(
+      (v) => v.name === item.variantName
+    );
 
-      const total = price * qty;
-      subtotal += total;
-
-      formattedItems.push({
-        productId: item.productId,
-        name: item.name || product.name,
-        variantName: item.variantName || null,
-        price,
-        quantity: qty,
-        total,
-      });
+    if (variant) {
+      price = Number(variant.price);
     }
+  }
+
+  if (isNaN(price)) {
+    return res.status(500).json({
+      success: false,
+      message: "Invalid product/variant price",
+    });
+  }
+
+  const total = price * qty;
+  subtotal += total;
+
+  formattedItems.push({
+    productId: item.productId,
+    name: product.name, // FIXED (secure)
+    variantName: item.variantName || null,
+    price,
+    quantity: qty,
+    total,
+  });
+}
 
 
     const safeDiscount = Math.max(0, Number(discount) || 0);
@@ -492,32 +499,59 @@ router.put("/update-whole-order/:id", authMiddleWare, async (req, res) => {
 
     const formattedItems = [];
 
-    for (const item of items) {
-      // IMPORTANT: Always fetch real product price
-      const product = await Product.findById(item.productId);
+ for (const item of items) {
+  const product = await Product.findById(item.productId);
 
-      if (!product) {
-        return res.status(400).json({
-          success: false,
-          message: `Product not found: ${item.productId}`,
-        });
-      }
+  if (!product) {
+    return res.status(400).json({
+      success: false,
+      message: `Product not found: ${item.productId}`,
+    });
+  }
 
-      const price = product.price; // trusted source
-      const total = price * item.quantity;
+  const qty = Number(item.quantity);
 
-      subtotal += total;
+  if (!qty || isNaN(qty) || qty <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid quantity in order items",
+    });
+  }
 
-      formattedItems.push({
-        productId: item.productId,
-        name: item.name || product.name,
-        variantName: item.variantName || null,
-        price,
-        quantity: item.quantity,
-        total,
-      });
+  // -------------------------
+  // VARIANT SAFE PRICE
+  // -------------------------
+  let price = Number(product.price);
+
+  if (item.variantName && product.variants?.length) {
+    const variant = product.variants.find(
+      (v) => v.name === item.variantName
+    );
+
+    if (variant) {
+      price = Number(variant.price);
     }
+  }
 
+  if (isNaN(price)) {
+    return res.status(500).json({
+      success: false,
+      message: "Invalid product/variant price",
+    });
+  }
+
+  const total = price * qty;
+  subtotal += total;
+
+  formattedItems.push({
+    productId: item.productId,
+    name: product.name,
+    variantName: item.variantName || null,
+    price,
+    quantity: qty,
+    total,
+  });
+}
     //  safe discount
     const safeDiscount = Math.max(0, Number(discount) || 0);
     const total = Math.max(0, subtotal - safeDiscount);
