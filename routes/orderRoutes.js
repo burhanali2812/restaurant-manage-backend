@@ -5,6 +5,7 @@ const authMiddleWare = require("../authMiddleWare/authMiddleWare");
 const Restaurant = require("../models/restaurants");
 const Waiter = require("../models/waiters");
 const OrderCounter = require("../models/orderCounter");
+const Product = require("../models/product");
 const printKitchenToken = require("../services/printerServices").printKitchenToken;
 const printWaiterToken = require("../services/printerServices").printWaiterToken;
 const printCustomerBill = require("../services/printerServices").printCustomerBill;
@@ -17,7 +18,6 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
       restaurantId,
       tableNo,
       orderType,
-  
       waiterId,
       items,
       discount = 0,
@@ -26,68 +26,83 @@ router.post("/addOrder", authMiddleWare, async (req, res) => {
     if (!restaurantId || !items || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "restaurantId, and items are required",
+        message: "restaurantId and items are required",
       });
     }
 
     let subtotal = 0;
+    const formattedItems = [];
 
-    const formattedItems = items.map((item) => {
-      const total = item.price * item.quantity;
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+      }
+
+      const price = product.price; 
+      const total = price * item.quantity;
+
       subtotal += total;
 
-      return {
+      formattedItems.push({
         productId: item.productId,
-        name: item.name,
-        price: item.price,
-        variantName: item.variantName,
+        name: item.name || product.name,
+        variantName: item.variantName || null,
+        price,
         quantity: item.quantity,
         total,
-      };
-    });
+      });
+    }
 
-    const total = subtotal - discount;
-   let counter = await OrderCounter.findOne({ key: "order" });
+    const safeDiscount = Math.max(0, Number(discount) || 0);
+    const total = Math.max(0, subtotal - safeDiscount);
 
-if (!counter) {
-  counter = await OrderCounter.create({
-    key: "order",
-    value: 1000,
-  });
-}
+    let counter = await OrderCounter.findOne({ key: "order" });
 
-counter.value += 1;
-await counter.save();
+    if (!counter) {
+      counter = await OrderCounter.create({
+        key: "order",
+        value: 1000,
+      });
+    }
 
-const OrderCount = counter.value;
-const cleanedWaiterId =
-  waiterId && waiterId.trim() !== "" ? waiterId : null;
+    counter.value += 1;
+    await counter.save();
 
-  const finalStatus = orderType === "dine-in" ? "pending" : "paid";
+    const cleanedWaiterId =
+      waiterId && waiterId.trim() !== "" ? waiterId : null;
+
+    const finalStatus = orderType === "dine-in" ? "pending" : "paid";
 
     const order = await Order.create({
       restaurantId,
       tableNo,
       orderType,
-      OrderNo: `ORD-${OrderCount}`,
-      waiterId : cleanedWaiterId,
+      OrderNo: `ORD-${counter.value}`,
+      waiterId: cleanedWaiterId,
       items: formattedItems,
       subtotal,
-      status: finalStatus,
-      discount,
+      discount: safeDiscount,
       total,
+      status: finalStatus,
     });
+
     const restaurant = await Restaurant.findById(restaurantId);
-    const waiter = cleanedWaiterId ? await Waiter.findById(cleanedWaiterId) : null;
+    const waiter = cleanedWaiterId
+      ? await Waiter.findById(cleanedWaiterId)
+      : null;
 
     res.status(201).json({
       success: true,
       message: "Order created successfully",
       data: order,
       restaurant,
-      waiter
+      waiter,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -400,5 +415,97 @@ router.get("/metrics", async (req, res) => {
     });
   }
 });
+
+router.put("/update-whole-order/:id", authMiddleWare, async (req, res) => {
+  try {
+    const {
+      tableNo,
+      orderType,
+      waiterId,
+      items,
+      discount = 0,
+    } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items are required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    let subtotal = 0;
+
+    const formattedItems = [];
+
+    for (const item of items) {
+      // IMPORTANT: Always fetch real product price
+      const product = await Product.findById(item.productId);
+
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+      }
+
+      const price = product.price; // trusted source
+      const total = price * item.quantity;
+
+      subtotal += total;
+
+      formattedItems.push({
+        productId: item.productId,
+        name: item.name || product.name,
+        variantName: item.variantName || null,
+        price,
+        quantity: item.quantity,
+        total,
+      });
+    }
+
+    //  safe discount
+    const safeDiscount = Math.max(0, Number(discount) || 0);
+    const total = Math.max(0, subtotal - safeDiscount);
+
+    // update order
+    order.tableNo = tableNo;
+    order.orderType = orderType;
+    order.waiterId = waiterId || null;
+    order.items = formattedItems;
+    order.subtotal = subtotal;
+    order.discount = safeDiscount;
+    order.total = total;
+
+    const updatedOrder = await order.save();
+
+    const restaurant = await Restaurant.findById(updatedOrder.restaurantId);
+    const waiter = updatedOrder.waiterId
+      ? await Waiter.findById(updatedOrder.waiterId)
+      : null;
+
+    return res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      data: updatedOrder,
+      restaurant,
+      waiter,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 
 module.exports = router;
